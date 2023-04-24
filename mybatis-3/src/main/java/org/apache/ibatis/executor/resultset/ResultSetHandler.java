@@ -15,18 +15,25 @@
  */
 package org.apache.ibatis.executor.resultset;
 
+import org.apache.ibatis.cursor.Cursor;
+
 import java.sql.CallableStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
-
-import org.apache.ibatis.cursor.Cursor;
 
 /**
  * @author Clinton Begin
  */
 public interface ResultSetHandler {
 
+  /**
+   * 处理 {@link java.sql.ResultSet} 成映射的对应的结果
+   *
+   * @param stmt Statement 对象
+   * @param <E> 泛型
+   * @return 结果数组
+   */
   <E> List<E> handleResultSets(Statement stmt) throws SQLException;
 
   <E> Cursor<E> handleCursorResultSets(Statement stmt) throws SQLException;

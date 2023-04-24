@@ -15,23 +15,6 @@
  */
 package org.apache.ibatis.executor.resultset;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Parameter;
-import java.sql.CallableStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-
 import org.apache.ibatis.annotations.AutomapConstructor;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.binding.MapperMethod.ParamMap;
@@ -47,26 +30,25 @@ import org.apache.ibatis.executor.parameter.ParameterHandler;
 import org.apache.ibatis.executor.result.DefaultResultContext;
 import org.apache.ibatis.executor.result.DefaultResultHandler;
 import org.apache.ibatis.executor.result.ResultMapException;
-import org.apache.ibatis.mapping.BoundSql;
-import org.apache.ibatis.mapping.Discriminator;
-import org.apache.ibatis.mapping.MappedStatement;
-import org.apache.ibatis.mapping.ParameterMapping;
-import org.apache.ibatis.mapping.ParameterMode;
-import org.apache.ibatis.mapping.ResultMap;
-import org.apache.ibatis.mapping.ResultMapping;
+import org.apache.ibatis.mapping.*;
 import org.apache.ibatis.reflection.MetaClass;
 import org.apache.ibatis.reflection.MetaObject;
 import org.apache.ibatis.reflection.ReflectorFactory;
 import org.apache.ibatis.reflection.factory.ObjectFactory;
-import org.apache.ibatis.session.AutoMappingBehavior;
-import org.apache.ibatis.session.Configuration;
-import org.apache.ibatis.session.ResultContext;
-import org.apache.ibatis.session.ResultHandler;
-import org.apache.ibatis.session.RowBounds;
+import org.apache.ibatis.session.*;
 import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.TypeHandler;
 import org.apache.ibatis.type.TypeHandlerRegistry;
 import org.apache.ibatis.util.MapUtil;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Parameter;
+import java.sql.CallableStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.text.MessageFormat;
+import java.util.*;
 
 /**
  * @author Clinton Begin
@@ -185,26 +167,38 @@ public class DefaultResultSetHandler implements ResultSetHandler {
   //
   // HANDLE RESULT SETS
   //
+  // 处理 {@link java.sql.ResultSet} 结果集
   @Override
   public List<Object> handleResultSets(Statement stmt) throws SQLException {
     ErrorContext.instance().activity("handling results").object(mappedStatement.getId());
 
+    // 多 ResultSet 的结果集合，每个 ResultSet 对应一个 Object 对象。而实际上，每个 Object 是 List<Object> 对象。
+    // 在不考虑存储过程的多 ResultSet 的情况，普通的查询，实际就一个 ResultSet ，也就是说，multipleResults 最多就一个元素。
     final List<Object> multipleResults = new ArrayList<>();
 
     int resultSetCount = 0;
+    // 获得首个 ResultSet 对象，并封装成 ResultSetWrapper 对象
     ResultSetWrapper rsw = getFirstResultSet(stmt);
 
+    // 获得 ResultMap 数组
+    // 在不考虑存储过程的多 ResultSet 的情况，普通的查询，实际就一个 ResultSet ，也就是说，resultMaps 就一个元素。
     List<ResultMap> resultMaps = mappedStatement.getResultMaps();
     int resultMapCount = resultMaps.size();
     validateResultMapsCount(rsw, resultMapCount);
     while (rsw != null && resultMapCount > resultSetCount) {
+      // 获得 ResultMap 对象
       ResultMap resultMap = resultMaps.get(resultSetCount);
+      // 处理 ResultSet ，将结果添加到 multipleResults 中
       handleResultSet(rsw, resultMap, multipleResults, null);
+      // 获得下一个 ResultSet 对象，并封装成 ResultSetWrapper 对象
       rsw = getNextResultSet(stmt);
+      // 清理
       cleanUpAfterHandlingResultSet();
+      // resultSetCount ++
       resultSetCount++;
     }
 
+    // 因为 `mappedStatement.resultSets` 只在存储过程中使用，本系列暂时不考虑，忽略即可
     String[] resultSets = mappedStatement.getResultSets();
     if (resultSets != null) {
       while (rsw != null && resultSetCount < resultSets.length) {
@@ -220,6 +214,7 @@ public class DefaultResultSetHandler implements ResultSetHandler {
       }
     }
 
+    // 如果是 multipleResults 单元素，则取首元素返回
     return collapseSingleResultList(multipleResults);
   }
 
@@ -296,16 +291,21 @@ public class DefaultResultSetHandler implements ResultSetHandler {
     }
   }
 
+  // 处理 ResultSet ，将结果添加到 multipleResults 中
   private void handleResultSet(ResultSetWrapper rsw, ResultMap resultMap, List<Object> multipleResults,
       ResultMapping parentMapping) throws SQLException {
     try {
-      if (parentMapping != null) {
+      if (parentMapping != null) { // 暂时忽略，因为只有存储过程的情况，调用该方法，parentMapping 为非空
         handleRowValues(rsw, resultMap, null, RowBounds.DEFAULT, parentMapping);
       } else if (resultHandler == null) {
+        // 如果没有自定义的 resultHandler ，则创建默认的 DefaultResultHandler 对象
         DefaultResultHandler defaultResultHandler = new DefaultResultHandler(objectFactory);
+        // 处理 ResultSet 返回的每一行 Row
         handleRowValues(rsw, resultMap, defaultResultHandler, rowBounds, null);
+        // 添加 defaultResultHandler 的处理的结果，到 multipleResults 中
         multipleResults.add(defaultResultHandler.getResultList());
       } else {
+        // 处理 ResultSet 返回的每一行 Row
         handleRowValues(rsw, resultMap, resultHandler, rowBounds, null);
       }
     } finally {

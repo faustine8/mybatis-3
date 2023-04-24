@@ -15,13 +15,6 @@
  */
 package org.apache.ibatis.executor.statement;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.List;
-
 import org.apache.ibatis.cursor.Cursor;
 import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.executor.keygen.Jdbc3KeyGenerator;
@@ -31,6 +24,9 @@ import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.mapping.ResultSetType;
 import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
+
+import java.sql.*;
+import java.util.List;
 
 /**
  * @author Clinton Begin
@@ -59,10 +55,15 @@ public class PreparedStatementHandler extends BaseStatementHandler {
     ps.addBatch();
   }
 
+  /**
+   * 调用 PreparedStatement.execute() 方法，然后将 resultSet 交给 resultSetHandler 处理
+   */
   @Override
   public <E> List<E> query(Statement statement, ResultHandler resultHandler) throws SQLException {
     PreparedStatement ps = (PreparedStatement) statement;
+    // 执行查询
     ps.execute();
+    // 处理返回结果
     return resultSetHandler.handleResultSets(ps);
   }
 
@@ -94,6 +95,7 @@ public class PreparedStatementHandler extends BaseStatementHandler {
 
   @Override
   public void parameterize(Statement statement) throws SQLException {
+    // 使用 ParameterHandler 对象来完成对 Statement 的设值
     parameterHandler.setParameters((PreparedStatement) statement);
   }
 

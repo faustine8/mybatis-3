@@ -15,14 +15,6 @@
  */
 package org.apache.ibatis.executor;
 
-import static org.apache.ibatis.executor.ExecutionPlaceholder.EXECUTION_PLACEHOLDER;
-
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.List;
-import java.util.concurrent.ConcurrentLinkedQueue;
-
 import org.apache.ibatis.cache.CacheKey;
 import org.apache.ibatis.cache.impl.PerpetualCache;
 import org.apache.ibatis.cursor.Cursor;
@@ -30,11 +22,7 @@ import org.apache.ibatis.executor.statement.StatementUtil;
 import org.apache.ibatis.logging.Log;
 import org.apache.ibatis.logging.LogFactory;
 import org.apache.ibatis.logging.jdbc.ConnectionLogger;
-import org.apache.ibatis.mapping.BoundSql;
-import org.apache.ibatis.mapping.MappedStatement;
-import org.apache.ibatis.mapping.ParameterMapping;
-import org.apache.ibatis.mapping.ParameterMode;
-import org.apache.ibatis.mapping.StatementType;
+import org.apache.ibatis.mapping.*;
 import org.apache.ibatis.reflection.MetaObject;
 import org.apache.ibatis.reflection.factory.ObjectFactory;
 import org.apache.ibatis.session.Configuration;
@@ -43,6 +31,14 @@ import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
 import org.apache.ibatis.transaction.Transaction;
 import org.apache.ibatis.type.TypeHandlerRegistry;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
+import static org.apache.ibatis.executor.ExecutionPlaceholder.EXECUTION_PLACEHOLDER;
 
 /**
  * @author Clinton Begin
@@ -129,11 +125,15 @@ public abstract class BaseExecutor implements Executor {
     return doFlushStatements(isRollBack);
   }
 
+  // 此方法在 SimpleExecutor 的父类 BaseExecutor 中实现
   @Override
   public <E> List<E> query(MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler)
       throws SQLException {
+    // 根据传入的参数动态获得 SQL 语句，最后返回用 BoundSql 对象表示
     BoundSql boundSql = ms.getBoundSql(parameter);
+    // 为本次查询创建缓存的 Key
     CacheKey key = createCacheKey(ms, parameter, rowBounds, boundSql);
+    // 查询
     return query(ms, parameter, rowBounds, resultHandler, key, boundSql);
   }
 
@@ -142,30 +142,39 @@ public abstract class BaseExecutor implements Executor {
   public <E> List<E> query(MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler,
       CacheKey key, BoundSql boundSql) throws SQLException {
     ErrorContext.instance().resource(ms.getResource()).activity("executing a query").object(ms.getId());
+    // 已经关闭，则抛出 ExecutorException 异常
     if (closed) {
       throw new ExecutorException("Executor was closed.");
     }
+    // 清空本地缓存，如果 queryStack 为零，并且要求清空本地缓存。
     if (queryStack == 0 && ms.isFlushCacheRequired()) {
       clearLocalCache();
     }
     List<E> list;
     try {
+      // queryStack + 1
       queryStack++;
+      // 从一级缓存中，获取查询结果
       list = resultHandler == null ? (List<E>) localCache.getObject(key) : null;
+      // 获取到，则进行处理
       if (list != null) {
         handleLocallyCachedOutputParameters(ms, key, parameter, boundSql);
-      } else {
+      } else { // 获得不到，则从数据库中查询
         list = queryFromDatabase(ms, parameter, rowBounds, resultHandler, key, boundSql);
       }
     } finally {
+      // queryStack - 1
       queryStack--;
     }
     if (queryStack == 0) {
+      // 执行延迟加载
       for (DeferredLoad deferredLoad : deferredLoads) {
         deferredLoad.load();
       }
       // issue #601
+      // 清空 deferredLoads
       deferredLoads.clear();
+      // 如果缓存级别是 LocalCacheScope.STATEMENT ，则进行清理
       if (configuration.getLocalCacheScope() == LocalCacheScope.STATEMENT) {
         // issue #482
         clearLocalCache();
@@ -325,24 +334,33 @@ public abstract class BaseExecutor implements Executor {
     }
   }
 
+  // 从数据库中读取操作
   private <E> List<E> queryFromDatabase(MappedStatement ms, Object parameter, RowBounds rowBounds,
       ResultHandler resultHandler, CacheKey key, BoundSql boundSql) throws SQLException {
     List<E> list;
+    // 在缓存中，添加占位对象。此处的占位符，和延迟加载有关，可见 `DeferredLoad#canLoad()` 方法
     localCache.putObject(key, EXECUTION_PLACEHOLDER);
     try {
+      // 执行读操作
       list = doQuery(ms, parameter, rowBounds, resultHandler, boundSql);
     } finally {
+      // 从缓存中，移除占位对象
       localCache.removeObject(key);
     }
+    // 添加到缓存中
     localCache.putObject(key, list);
+    // 暂时忽略，存储过程相关
     if (ms.getStatementType() == StatementType.CALLABLE) {
       localOutputParameterCache.putObject(key, parameter);
     }
     return list;
   }
 
+  // 获得 Connection 对象
   protected Connection getConnection(Log statementLog) throws SQLException {
+    // 获得 Connection 对象
     Connection connection = transaction.getConnection();
+    // 如果 debug 日志级别，则创建 ConnectionLogger 对象，进行动态代理
     if (statementLog.isDebugEnabled()) {
       return ConnectionLogger.newInstance(connection, statementLog, queryStack);
     }

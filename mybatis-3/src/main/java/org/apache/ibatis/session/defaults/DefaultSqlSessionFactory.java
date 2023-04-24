@@ -15,21 +15,17 @@
  */
 package org.apache.ibatis.session.defaults;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-
 import org.apache.ibatis.exceptions.ExceptionFactory;
 import org.apache.ibatis.executor.ErrorContext;
 import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.mapping.Environment;
-import org.apache.ibatis.session.Configuration;
-import org.apache.ibatis.session.ExecutorType;
-import org.apache.ibatis.session.SqlSession;
-import org.apache.ibatis.session.SqlSessionFactory;
-import org.apache.ibatis.session.TransactionIsolationLevel;
+import org.apache.ibatis.session.*;
 import org.apache.ibatis.transaction.Transaction;
 import org.apache.ibatis.transaction.TransactionFactory;
 import org.apache.ibatis.transaction.managed.ManagedTransactionFactory;
+
+import java.sql.Connection;
+import java.sql.SQLException;
 
 /**
  * @author Clinton Begin
@@ -42,8 +38,10 @@ public class DefaultSqlSessionFactory implements SqlSessionFactory {
     this.configuration = configuration;
   }
 
+  // 6. 进入openSession方法
   @Override
   public SqlSession openSession() {
+    // getDefaultExecutorType() 传递的是 SimpleExecutor
     return openSessionFromDataSource(configuration.getDefaultExecutorType(), null, false);
   }
 
@@ -87,16 +85,24 @@ public class DefaultSqlSessionFactory implements SqlSessionFactory {
     return configuration;
   }
 
+  //7.进入 openSessionFromDataSource。
+  // ExecutorType 为 Executor 的类型，TransactionIsolationLevel 为事务隔离级别，autoCommit 是否开启事务
+  // openSession 的多个重载方法可以指定获得的 SeqSession 的 Executor 类型和事务的处理
   private SqlSession openSessionFromDataSource(ExecutorType execType, TransactionIsolationLevel level,
       boolean autoCommit) {
     Transaction tx = null;
     try {
+      // 获得 Environment 对象
       final Environment environment = configuration.getEnvironment();
+      // 创建 Transaction 对象
       final TransactionFactory transactionFactory = getTransactionFactoryFromEnvironment(environment);
       tx = transactionFactory.newTransaction(environment.getDataSource(), level, autoCommit);
+      // 创建 Executor 对象
       final Executor executor = configuration.newExecutor(tx, execType);
+      // 创建 DefaultSqlSession 对象
       return new DefaultSqlSession(configuration, executor, autoCommit);
     } catch (Exception e) {
+      // 如果发生异常，则关闭 Transaction 对象
       closeTransaction(tx); // may have fetched a connection so lets call close()
       throw ExceptionFactory.wrapException("Error opening session.  Cause: " + e, e);
     } finally {

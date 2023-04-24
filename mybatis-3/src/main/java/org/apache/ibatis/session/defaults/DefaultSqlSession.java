@@ -15,14 +15,6 @@
  */
 package org.apache.ibatis.session.defaults;
 
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import org.apache.ibatis.binding.BindingException;
 import org.apache.ibatis.cursor.Cursor;
 import org.apache.ibatis.exceptions.ExceptionFactory;
@@ -38,6 +30,14 @@ import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
 import org.apache.ibatis.session.SqlSession;
+
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * The default implementation for {@link SqlSession}. Note that this class is not Thread-Safe.
@@ -132,6 +132,7 @@ public class DefaultSqlSession implements SqlSession {
     }
   }
 
+  // 8.进入selectList方法，多个重载方法
   @Override
   public <E> List<E> selectList(String statement) {
     return this.selectList(statement, null);
@@ -149,9 +150,11 @@ public class DefaultSqlSession implements SqlSession {
 
   private <E> List<E> selectList(String statement, Object parameter, RowBounds rowBounds, ResultHandler handler) {
     try {
+      // 从加载到的所有的 MappedStatement 的集合中获得 MappedStatement 对象
       MappedStatement ms = configuration.getMappedStatement(statement);
       dirty |= ms.isDirtySelect();
-      return executor.query(ms, wrapCollection(parameter), rowBounds, handler);
+      // 执行查询
+      return executor.query(ms, wrapCollection(parameter), rowBounds, handler); // RowBounds是用来逻辑分⻚; wrapCollection(parameter) 是用来装饰集合或者数组参数
     } catch (Exception e) {
       throw ExceptionFactory.wrapException("Error querying database.  Cause: " + e, e);
     } finally {
