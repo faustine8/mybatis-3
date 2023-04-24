@@ -43,7 +43,9 @@ public class MybatisTest {
     SqlSession sqlSession = factory.openSession();
 
     // 这里不再调用 SqlSession 的 api, 而是获得了接口对象，调用接口中的方法。
+    // 使用 JDK 动态代理对 mapper 接口产生代理对象
     UserMapper mapper = sqlSession.getMapper(UserMapper.class);
+    // 代理对象调用接口中的任意方法，执行的都是动态代理的 InvocationHandler 中的 invoke 方法
     User user = mapper.getUser(1);
 
   }

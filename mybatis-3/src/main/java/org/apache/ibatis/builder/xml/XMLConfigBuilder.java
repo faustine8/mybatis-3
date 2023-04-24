@@ -421,32 +421,46 @@ public class XMLConfigBuilder extends BaseBuilder {
 
   private void mapperElement(XNode parent) throws Exception {
     if (parent != null) {
+      // 遍历子节点
       for (XNode child : parent.getChildren()) {
+        // 如果是 package 标签，则扫描该包
         if ("package".equals(child.getName())) {
+          // 获取 <package> 节点中的 name 属性
           String mapperPackage = child.getStringAttribute("name");
+          // 从指定包中查找 mapper 接口，并根据 mapper 接口解析映射配置
           configuration.addMappers(mapperPackage);
+        // 如果是 mapper 标签，
         } else {
+          // 获得 resource、url、class 属性
           String resource = child.getStringAttribute("resource");
           String url = child.getStringAttribute("url");
           String mapperClass = child.getStringAttribute("class");
-          if (resource != null && url == null && mapperClass == null) {
+          if (resource != null && url == null && mapperClass == null) { // resource 不为空，且其他两者为空，则从指定路径中加载配置
             ErrorContext.instance().resource(resource);
+            // 获得 resource 的 InputStream 对象
             try (InputStream inputStream = Resources.getResourceAsStream(resource)) {
+              // 创建 XMLMapperBuilder 对象
               XMLMapperBuilder mapperParser = new XMLMapperBuilder(inputStream, configuration, resource,
                   configuration.getSqlFragments());
+              // 执行解析
               mapperParser.parse();
             }
-          } else if (resource == null && url != null && mapperClass == null) {
+          } else if (resource == null && url != null && mapperClass == null) { // url 不为空，且其他两者为空，则通过 url 加载配置
             ErrorContext.instance().resource(url);
+            // 获得 url 的 InputStream 对象
             try (InputStream inputStream = Resources.getUrlAsStream(url)) {
+              // 创建 XMLMapperBuilder 对象
               XMLMapperBuilder mapperParser = new XMLMapperBuilder(inputStream, configuration, url,
                   configuration.getSqlFragments());
+              // 执行解析
               mapperParser.parse();
             }
-          } else if (resource == null && url == null && mapperClass != null) {
+          } else if (resource == null && url == null && mapperClass != null) { // mapperClass 不为空，且其他两者为空，则通过 mapperClass 解析映射配置
+            // 获得 Mapper 接口
             Class<?> mapperInterface = Resources.classForName(mapperClass);
+            // 添加到 configuration 中
             configuration.addMapper(mapperInterface);
-          } else {
+          } else { // 以上条件不满足，则抛出异常
             throw new BuilderException(
                 "A mapper element may only specify a url, resource or class, but not more than one.");
           }

@@ -156,21 +156,25 @@ public class MapperMethod {
 
   private <E> Object executeForMany(SqlSession sqlSession, Object[] args) {
     List<E> result;
+    // 转换参数
     Object param = method.convertArgsToSqlCommandParam(args);
+    // 执行 SELECT 操作
     if (method.hasRowBounds()) {
       RowBounds rowBounds = method.extractRowBounds(args);
-      result = sqlSession.selectList(command.getName(), param, rowBounds);
+      result = sqlSession.selectList(command.getName(), param, rowBounds); // 可以发现底层也是调用的 sqlSession 的接口
     } else {
       result = sqlSession.selectList(command.getName(), param);
     }
     // issue #510 Collections & arrays support
+    // 封装 Array 或 Collection 结果
     if (!method.getReturnType().isAssignableFrom(result.getClass())) {
-      if (method.getReturnType().isArray()) {
+      if (method.getReturnType().isArray()) { // 情况一，Array
         return convertToArray(result);
       }
-      return convertToDeclaredCollection(sqlSession.getConfiguration(), result);
+      return convertToDeclaredCollection(sqlSession.getConfiguration(), result); // 情况二，Collection
     }
-    return result;
+    // 直接返回的结果
+    return result; // 情况三，默认
   }
 
   private <T> Cursor<T> executeForCursor(SqlSession sqlSession, Object[] args) {
