@@ -15,39 +15,21 @@
  */
 package org.apache.ibatis.builder.xml;
 
-import java.io.InputStream;
-import java.io.Reader;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-
-import org.apache.ibatis.builder.BaseBuilder;
-import org.apache.ibatis.builder.BuilderException;
-import org.apache.ibatis.builder.CacheRefResolver;
-import org.apache.ibatis.builder.IncompleteElementException;
-import org.apache.ibatis.builder.MapperBuilderAssistant;
-import org.apache.ibatis.builder.ResultMapResolver;
+import org.apache.ibatis.builder.*;
 import org.apache.ibatis.cache.Cache;
 import org.apache.ibatis.executor.ErrorContext;
 import org.apache.ibatis.io.Resources;
-import org.apache.ibatis.mapping.Discriminator;
-import org.apache.ibatis.mapping.ParameterMapping;
-import org.apache.ibatis.mapping.ParameterMode;
-import org.apache.ibatis.mapping.ResultFlag;
-import org.apache.ibatis.mapping.ResultMap;
-import org.apache.ibatis.mapping.ResultMapping;
+import org.apache.ibatis.mapping.*;
 import org.apache.ibatis.parsing.XNode;
 import org.apache.ibatis.parsing.XPathParser;
 import org.apache.ibatis.reflection.MetaClass;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.TypeHandler;
+
+import java.io.InputStream;
+import java.io.Reader;
+import java.util.*;
 
 /**
  * @author Clinton Begin
@@ -96,14 +78,21 @@ public class XMLMapperBuilder extends BaseBuilder {
   }
 
   public void parse() {
+    // 判断当前 Mapper 是否已经加载过
     if (!configuration.isResourceLoaded(resource)) {
+      // 解析 `<mapper />` 节点
       configurationElement(parser.evalNode("/mapper"));
+      // 标记该 Mapper 已经加载过
       configuration.addLoadedResource(resource);
+      // 绑定 Mapper
       bindMapperForNamespace();
     }
 
+    // 解析待定的 <resultMap /> 节点
     parsePendingResultMaps();
+    // 解析待定的 <cache-ref /> 节点
     parsePendingCacheRefs();
+    // 解析待定的 SQL 语句的节点
     parsePendingStatements();
   }
 
@@ -111,38 +100,54 @@ public class XMLMapperBuilder extends BaseBuilder {
     return sqlFragments.get(refid);
   }
 
+  // 解析 `<mapper />` 节点
   private void configurationElement(XNode context) {
     try {
+      // 获得 namespace 属性
       String namespace = context.getStringAttribute("namespace");
       if (namespace == null || namespace.isEmpty()) {
         throw new BuilderException("Mapper's namespace cannot be empty");
       }
+      // 设置 namespace 属性
       builderAssistant.setCurrentNamespace(namespace);
+      // 解析 <cache-ref /> 节点
       cacheRefElement(context.evalNode("cache-ref"));
-      cacheElement(context.evalNode("cache"));
+      // 解析 <cache /> 节点
+      cacheElement(context.evalNode("cache")); // 最终在这里看到了关于cache属性的处理
+      // 已废弃！老式风格的参数映射。内联参数是首选,这个元素可能在将来被移除，这里不会记录。
       parameterMapElement(context.evalNodes("/mapper/parameterMap"));
+      // 解析 <resultMap /> 节点们
       resultMapElements(context.evalNodes("/mapper/resultMap"));
+      // 解析 <sql /> 节点们
       sqlElement(context.evalNodes("/mapper/sql"));
-      buildStatementFromContext(context.evalNodes("select|insert|update|delete"));
+      // 解析 <select /> <insert /> <update /> <delete /> 节点们
+      // 这里会将生成的Cache包装到对应的MappedStatement
+      buildStatementFromContext(context.evalNodes("select|insert|update|delete")); // 这里会将生成的Cache包装到对应的MappedStatement
     } catch (Exception e) {
       throw new BuilderException("Error parsing Mapper XML. The XML location is '" + resource + "'. Cause: " + e, e);
     }
   }
 
+  // 解析 <select /> <insert /> <update /> <delete /> 节点们
   private void buildStatementFromContext(List<XNode> list) {
     if (configuration.getDatabaseId() != null) {
       buildStatementFromContext(list, configuration.getDatabaseId());
     }
     buildStatementFromContext(list, null);
+    // 上面两块代码，可以简写成 buildStatementFromContext(list, configuration.getDatabaseId());
   }
 
   private void buildStatementFromContext(List<XNode> list, String requiredDatabaseId) {
+    //遍历 <select /> <insert /> <update /> <delete /> 节点们
     for (XNode context : list) {
+      // 创建 XMLStatementBuilder 对象，执行解析
       final XMLStatementBuilder statementParser = new XMLStatementBuilder(configuration, builderAssistant, context,
           requiredDatabaseId);
       try {
+        // 每一条执行语句转换成一个MappedStatement
         statementParser.parseStatementNode();
       } catch (IncompleteElementException e) {
+        // 解析失败，添加到 configuration 中
         configuration.addIncompleteStatement(statementParser);
       }
     }
@@ -206,17 +211,26 @@ public class XMLMapperBuilder extends BaseBuilder {
     }
   }
 
+  // 解析 <cache /> 标签
   private void cacheElement(XNode context) {
     if (context != null) {
+      //解析 <cache/> 标签的type属性，这里我们可以自定义cache的实现类，比如 redisCache，如果没有自定义，这里使用和一级缓存相同的 PERPETUAL
       String type = context.getStringAttribute("type", "PERPETUAL");
       Class<? extends Cache> typeClass = typeAliasRegistry.resolveAlias(type);
+      // 获得负责过期的 Cache 实现类
       String eviction = context.getStringAttribute("eviction", "LRU");
       Class<? extends Cache> evictionClass = typeAliasRegistry.resolveAlias(eviction);
+      // 清空缓存的频率。0 代表不清空
       Long flushInterval = context.getLongAttribute("flushInterval");
+      // 缓存容器大小
       Integer size = context.getIntAttribute("size");
+      // 是否序列化
       boolean readWrite = !context.getBooleanAttribute("readOnly", false);
+      // 是否阻塞
       boolean blocking = context.getBooleanAttribute("blocking", false);
+      // 获得 Properties 属性
       Properties props = context.getChildrenAsProperties();
+      // 创建 Cache 对象
       builderAssistant.useNewCache(typeClass, evictionClass, flushInterval, size, readWrite, blocking, props);
     }
   }
@@ -428,20 +442,28 @@ public class XMLMapperBuilder extends BaseBuilder {
     }
   }
 
+  /**
+   * 绑定 Mapper
+   */
   private void bindMapperForNamespace() {
+    // 获得 Mapper 映射配置文件对应的 Mapper 接口，实际上类名就是 namespace 。嘿嘿，这个是常识。
     String namespace = builderAssistant.getCurrentNamespace();
     if (namespace != null) {
       Class<?> boundType = null;
       try {
+        // 加载接口的 Class 对象
         boundType = Resources.classForName(namespace);
       } catch (ClassNotFoundException e) {
         // ignore, bound type is not required
       }
+      // 不存在该 Mapper 接口，则进行添加
       if (boundType != null && !configuration.hasMapper(boundType)) {
         // Spring may not know the real resource name so we set a flag
         // to prevent loading again this resource from the mapper interface
         // look at MapperAnnotationBuilder#loadXmlResource
+        // 标记 namespace 已经添加，避免 MapperAnnotationBuilder#loadXmlResource(...) 重复加载
         configuration.addLoadedResource("namespace:" + namespace);
+        // 添加到 configuration 中
         configuration.addMapper(boundType);
       }
     }

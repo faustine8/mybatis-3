@@ -15,39 +15,19 @@
  */
 package org.apache.ibatis.builder;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.StringTokenizer;
-
 import org.apache.ibatis.cache.Cache;
 import org.apache.ibatis.cache.decorators.LruCache;
 import org.apache.ibatis.cache.impl.PerpetualCache;
 import org.apache.ibatis.executor.ErrorContext;
 import org.apache.ibatis.executor.keygen.KeyGenerator;
-import org.apache.ibatis.mapping.CacheBuilder;
-import org.apache.ibatis.mapping.Discriminator;
-import org.apache.ibatis.mapping.MappedStatement;
-import org.apache.ibatis.mapping.ParameterMap;
-import org.apache.ibatis.mapping.ParameterMapping;
-import org.apache.ibatis.mapping.ParameterMode;
-import org.apache.ibatis.mapping.ResultFlag;
-import org.apache.ibatis.mapping.ResultMap;
-import org.apache.ibatis.mapping.ResultMapping;
-import org.apache.ibatis.mapping.ResultSetType;
-import org.apache.ibatis.mapping.SqlCommandType;
-import org.apache.ibatis.mapping.SqlSource;
-import org.apache.ibatis.mapping.StatementType;
+import org.apache.ibatis.mapping.*;
 import org.apache.ibatis.reflection.MetaClass;
 import org.apache.ibatis.scripting.LanguageDriver;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.TypeHandler;
+
+import java.util.*;
 
 /**
  * @author Clinton Begin
@@ -121,12 +101,27 @@ public class MapperBuilderAssistant extends BaseBuilder {
     }
   }
 
+  /**
+   * 创建 Cache 对象
+   *
+   * @param typeClass 负责存储的 Cache 实现类
+   * @param evictionClass 负责过期的 Cache 实现类
+   * @param flushInterval 清空缓存的频率。0 代表不清空
+   * @param size 缓存容器大小
+   * @param readWrite 是否序列化
+   * @param blocking 是否阻塞
+   * @param props Properties 对象
+   * @return Cache 对象
+   */
   public Cache useNewCache(Class<? extends Cache> typeClass, Class<? extends Cache> evictionClass, Long flushInterval,
       Integer size, boolean readWrite, boolean blocking, Properties props) {
-    Cache cache = new CacheBuilder(currentNamespace).implementation(valueOrDefault(typeClass, PerpetualCache.class))
+    // 1.生成Cache对象
+    Cache cache = new CacheBuilder(currentNamespace).implementation(valueOrDefault(typeClass, PerpetualCache.class)) //这里如果我们定义了<cache/>中的type，就使用自定义的Cache,否则使用和一级缓存相同的PerpetualCache
         .addDecorator(valueOrDefault(evictionClass, LruCache.class)).clearInterval(flushInterval).size(size)
         .readWrite(readWrite).blocking(blocking).properties(props).build();
+    // 2.添加到 Configuration 中
     configuration.addCache(cache);
+    // 3.并将 cache 赋值给 MapperBuilderAssistant.currentCache
     currentCache = cache;
     return cache;
   }
@@ -195,31 +190,42 @@ public class MapperBuilderAssistant extends BaseBuilder {
     return new Discriminator.Builder(configuration, resultMapping, namespaceDiscriminatorMap).build();
   }
 
+  // 构建 MappedStatement 对象
   public MappedStatement addMappedStatement(String id, SqlSource sqlSource, StatementType statementType,
       SqlCommandType sqlCommandType, Integer fetchSize, Integer timeout, String parameterMap, Class<?> parameterType,
       String resultMap, Class<?> resultType, ResultSetType resultSetType, boolean flushCache, boolean useCache,
       boolean resultOrdered, KeyGenerator keyGenerator, String keyProperty, String keyColumn, String databaseId,
       LanguageDriver lang, String resultSets, boolean dirtySelect) {
 
+    // 如果只想的 Cache 未解析，抛出 IncompleteElementException 异常 ？？？
     if (unresolvedCacheRef) {
       throw new IncompleteElementException("Cache-ref not yet resolved");
     }
 
+    // 获得 id 编号，格式为 `${namespace}.${id}`
     id = applyCurrentNamespace(id, false);
 
+    // 创建 MappedStatement.Builder 对象
     MappedStatement.Builder statementBuilder = new MappedStatement.Builder(configuration, id, sqlSource, sqlCommandType)
         .resource(resource).fetchSize(fetchSize).timeout(timeout).statementType(statementType)
         .keyGenerator(keyGenerator).keyProperty(keyProperty).keyColumn(keyColumn).databaseId(databaseId).lang(lang)
         .resultOrdered(resultOrdered).resultSets(resultSets)
-        .resultMaps(getStatementResultMaps(resultMap, resultType, id)).resultSetType(resultSetType)
-        .flushCacheRequired(flushCache).useCache(useCache).cache(currentCache).dirtySelect(dirtySelect);
+        .resultMaps(getStatementResultMaps(resultMap, resultType, id)) // 获得 ResultMap 集合
+        .resultSetType(resultSetType)
+        .flushCacheRequired(flushCache)
+        .useCache(useCache)
+        .cache(currentCache) // 在这里将之前生成的 Cache 封装到 MappedStatement
+        .dirtySelect(dirtySelect);
 
+    // 获得 ParameterMap ，并设置到 MappedStatement.Builder 中
     ParameterMap statementParameterMap = getStatementParameterMap(parameterMap, parameterType, id);
     if (statementParameterMap != null) {
       statementBuilder.parameterMap(statementParameterMap);
     }
 
+    // 创建 MappedStatement 对象
     MappedStatement statement = statementBuilder.build();
+    // 添加到 configuration 中
     configuration.addMappedStatement(statement);
     return statement;
   }
