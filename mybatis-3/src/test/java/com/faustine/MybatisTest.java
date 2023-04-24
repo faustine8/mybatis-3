@@ -4,6 +4,8 @@ import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.ibatis.session.SqlSessionFactoryBuilder;
+import org.apache.ibatis.submitted.resolution.User;
+import org.apache.ibatis.submitted.resolution.cachereffromxml.UserMapper;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,6 +37,14 @@ public class MybatisTest {
    * 测试 Mapper 代理方式
    */
   public void test2() throws IOException {
+    // 前三步都相同
+    InputStream inputStream = Resources.getResourceAsStream("sqlMapConfig.xml");
+    SqlSessionFactory factory = new SqlSessionFactoryBuilder().build(inputStream);
+    SqlSession sqlSession = factory.openSession();
+
+    // 这里不再调用 SqlSession 的 api, 而是获得了接口对象，调用接口中的方法。
+    UserMapper mapper = sqlSession.getMapper(UserMapper.class);
+    User user = mapper.getUser(1);
 
   }
 
