@@ -195,8 +195,11 @@ public class DefaultSqlSession implements SqlSession {
   @Override
   public int update(String statement, Object parameter) {
     try {
+      // 标记 dirty ，表示执行过写操作
       dirty = true;
+      // 获得 MappedStatement 对象
       MappedStatement ms = configuration.getMappedStatement(statement);
+      // 执行更新操作
       return executor.update(ms, wrapCollection(parameter));
     } catch (Exception e) {
       throw ExceptionFactory.wrapException("Error updating database.  Cause: " + e, e);
@@ -223,7 +226,9 @@ public class DefaultSqlSession implements SqlSession {
   @Override
   public void commit(boolean force) {
     try {
-      executor.commit(isCommitOrRollbackRequired(force));
+      // 提交事务
+      executor.commit(isCommitOrRollbackRequired(force)); // 主要是这句
+      // 标记 dirty 为 false
       dirty = false;
     } catch (Exception e) {
       throw ExceptionFactory.wrapException("Error committing transaction.  Cause: " + e, e);
