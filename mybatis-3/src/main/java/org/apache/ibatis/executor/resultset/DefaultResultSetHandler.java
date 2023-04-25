@@ -647,17 +647,22 @@ public class DefaultResultSetHandler implements ResultSetHandler {
   // INSTANTIATION & CONSTRUCTOR MAPPING
   //
 
+  // 创建映射后的结果对象
   private Object createResultObject(ResultSetWrapper rsw, ResultMap resultMap, ResultLoaderMap lazyLoader,
       String columnPrefix) throws SQLException {
+    // useConstructorMappings ，表示是否使用构造方法创建该结果对象。此处将其重置
     this.useConstructorMappings = false; // reset previous mapping result
-    final List<Class<?>> constructorArgTypes = new ArrayList<>();
-    final List<Object> constructorArgs = new ArrayList<>();
+    final List<Class<?>> constructorArgTypes = new ArrayList<>(); // 记录使用的构造方法的参数类型的数组
+    final List<Object> constructorArgs = new ArrayList<>(); // 记录使用的构造方法的参数值的数组
+    // 创建映射后的结果对象
     Object resultObject = createResultObject(rsw, resultMap, constructorArgTypes, constructorArgs, columnPrefix);
     if (resultObject != null && !hasTypeHandlerForResultObject(rsw, resultMap.getType())) {
       final List<ResultMapping> propertyMappings = resultMap.getPropertyResultMappings();
       for (ResultMapping propertyMapping : propertyMappings) {
         // issue gcode #109 && issue #149
+        // 判断属性有没配置嵌套查询，如果有就创建代理对象
         if (propertyMapping.getNestedQueryId() != null && propertyMapping.isLazy()) {
+          // 创建延迟加载代理对象
           resultObject = configuration.getProxyFactory().createProxy(resultObject, lazyLoader, configuration,
               objectFactory, constructorArgTypes, constructorArgs);
           break;
@@ -668,11 +673,14 @@ public class DefaultResultSetHandler implements ResultSetHandler {
     return resultObject;
   }
 
+  // 创建映射后的结果对象
   private Object createResultObject(ResultSetWrapper rsw, ResultMap resultMap, List<Class<?>> constructorArgTypes,
       List<Object> constructorArgs, String columnPrefix) throws SQLException {
     final Class<?> resultType = resultMap.getType();
     final MetaClass metaType = MetaClass.forClass(resultType, reflectorFactory);
     final List<ResultMapping> constructorMappings = resultMap.getConstructorResultMappings();
+    // 下面，分成四种创建结果对象的情况
+    // 情况一，如果有对应的 TypeHandler 对象，则意味着是基本类型，直接创建对结果应对象
     if (hasTypeHandlerForResultObject(rsw, resultType)) {
       return createPrimitiveResultObject(rsw, resultMap, columnPrefix);
     }

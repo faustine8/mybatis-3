@@ -15,15 +15,9 @@
  */
 package org.apache.ibatis.executor.loader.javassist;
 
-import java.lang.reflect.Method;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import javassist.util.proxy.MethodHandler;
 import javassist.util.proxy.Proxy;
 import javassist.util.proxy.ProxyFactory;
-
 import org.apache.ibatis.executor.ExecutorException;
 import org.apache.ibatis.executor.loader.AbstractEnhancedDeserializationProxy;
 import org.apache.ibatis.executor.loader.AbstractSerialStateHolder;
@@ -38,7 +32,14 @@ import org.apache.ibatis.reflection.property.PropertyCopier;
 import org.apache.ibatis.reflection.property.PropertyNamer;
 import org.apache.ibatis.session.Configuration;
 
+import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 /**
+ * 基于 Javassist 的 ProxyFactory 实现类
+ *
  * @author Eduardo Macarron
  */
 public class JavassistProxyFactory implements org.apache.ibatis.executor.loader.ProxyFactory {
@@ -55,6 +56,17 @@ public class JavassistProxyFactory implements org.apache.ibatis.executor.loader.
     }
   }
 
+  /**
+   * 接口实现
+   *
+   * @param target 目标结果对象
+   * @param lazyLoader 延迟加载对象
+   * @param configuration 配置
+   * @param objectFactory 对象工厂
+   * @param constructorArgTypes 构造参数类型
+   * @param constructorArgs 构造参数值
+   * @return 代理对象
+   */
   @Override
   public Object createProxy(Object target, ResultLoaderMap lazyLoader, Configuration configuration,
       ObjectFactory objectFactory, List<Class<?>> constructorArgTypes, List<Object> constructorArgs) {
@@ -98,6 +110,9 @@ public class JavassistProxyFactory implements org.apache.ibatis.executor.loader.
     return enhanced;
   }
 
+  /**
+   * 代理对象实现，核心逻辑执行
+   */
   private static class EnhancedResultObjectProxyImpl implements MethodHandler {
 
     private final Class<?> type;
@@ -119,12 +134,18 @@ public class JavassistProxyFactory implements org.apache.ibatis.executor.loader.
       this.constructorArgs = constructorArgs;
     }
 
+    /**
+     * 创建代理对象
+     */
     public static Object createProxy(Object target, ResultLoaderMap lazyLoader, Configuration configuration,
         ObjectFactory objectFactory, List<Class<?>> constructorArgTypes, List<Object> constructorArgs) {
       final Class<?> type = target.getClass();
+      // 创建 EnhancedResultObjectProxyImpl 对象
       EnhancedResultObjectProxyImpl callback = new EnhancedResultObjectProxyImpl(type, lazyLoader, configuration,
           objectFactory, constructorArgTypes, constructorArgs);
+      // 创建代理对象
       Object enhanced = createStaticProxy(type, callback, constructorArgTypes, constructorArgs);
+      // 将 target 的属性，复制到 enhanced 中
       PropertyCopier.copyBeanProperties(type, target, enhanced);
       return enhanced;
     }

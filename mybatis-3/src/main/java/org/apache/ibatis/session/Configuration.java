@@ -87,6 +87,12 @@ public class Configuration {
   protected boolean safeRowBoundsEnabled;
   protected boolean safeResultHandlerEnabled = true;
   protected boolean mapUnderscoreToCamelCase;
+
+  /**
+   * 当开启时，任何方法的调用都会加载该对象的所有属性。否则，每个属性会按需加载（参考lazyLoadTriggerMethods)
+   * <p>
+   * 默认为 true
+   */
   protected boolean aggressiveLazyLoading;
   protected boolean multipleResultSetsEnabled = true;
   protected boolean useGeneratedKeys;
@@ -105,6 +111,10 @@ public class Configuration {
   protected Class<?> defaultSqlProviderType;
   protected LocalCacheScope localCacheScope = LocalCacheScope.SESSION;
   protected JdbcType jdbcTypeForNull = JdbcType.OTHER;
+
+  /**
+   * 延迟加载触发方法
+   */
   protected Set<String> lazyLoadTriggerMethods = new HashSet<>(
       Arrays.asList("equals", "clone", "hashCode", "toString"));
   protected Integer defaultStatementTimeout;
@@ -119,6 +129,7 @@ public class Configuration {
   protected ObjectFactory objectFactory = new DefaultObjectFactory();
   protected ObjectWrapperFactory objectWrapperFactory = new DefaultObjectWrapperFactory();
 
+  /** 是否开启延迟加载 */
   protected boolean lazyLoadingEnabled;
   protected ProxyFactory proxyFactory = new JavassistProxyFactory(); // #224 Using internal Javassist instead of OGNL
 
@@ -422,6 +433,11 @@ public class Configuration {
     return proxyFactory;
   }
 
+  /**
+   * 默认使用Javassist代理工厂
+   *
+   * @param proxyFactory 代理工厂类
+   */
   public void setProxyFactory(ProxyFactory proxyFactory) {
     if (proxyFactory == null) {
       proxyFactory = new JavassistProxyFactory();
