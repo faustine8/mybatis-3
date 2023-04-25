@@ -70,7 +70,9 @@ public class XMLStatementBuilder extends BaseBuilder {
     SqlCommandType sqlCommandType = SqlCommandType.valueOf(nodeName.toUpperCase(Locale.ENGLISH));
     // 获得各种属性
     boolean isSelect = sqlCommandType == SqlCommandType.SELECT;
+    // 是否每一次都清空二级缓存，默认为 false
     boolean flushCache = context.getBooleanAttribute("flushCache", !isSelect);
+    // 使用二级缓存，默认为 true
     boolean useCache = context.getBooleanAttribute("useCache", isSelect);
     boolean resultOrdered = context.getBooleanAttribute("resultOrdered", false);
 

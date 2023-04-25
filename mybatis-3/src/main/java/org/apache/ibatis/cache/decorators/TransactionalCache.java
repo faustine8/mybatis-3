@@ -103,7 +103,7 @@ public class TransactionalCache implements Cache {
 
   @Override
   public void putObject(Object key, Object object) {
-    // 将键值对存入到 entriesToAddOnCommit 这个Map中中，而非真实的缓存对象 delegate 中
+    // 将键值对存入到 entriesToAddOnCommit 这个Map中，而非真实的缓存对象 delegate 中
     entriesToAddOnCommit.put(key, object);
   }
 
@@ -125,7 +125,7 @@ public class TransactionalCache implements Cache {
     if (clearOnCommit) {
       delegate.clear();
     }
-    // 将 entriesToAddOnCommit、entriesMissedInCache 刷入 delegate(cache) 中
+    // 将 entriesToAddOnCommit、entriesMissedInCache 刷入 delegate (Cache对象)中
     flushPendingEntries();
     // 重置
     reset();

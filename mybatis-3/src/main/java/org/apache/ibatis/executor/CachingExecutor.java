@@ -95,7 +95,7 @@ public class CachingExecutor implements Executor {
   public <E> List<E> query(MappedStatement ms, Object parameterObject, RowBounds rowBounds, ResultHandler resultHandler,
       CacheKey key, BoundSql boundSql) throws SQLException {
     // 从 MappedStatement 中获取 Cache，注意这里的 Cache 是从MappedStatement中获取的
-    // 也就是我们上面解析Mapper中<cache/>标签中创建的，它保存在Configration中
+    // 也就是我们上面解析Mapper中<cache/>标签中创建的，它保存在Configuration中
     // 我们在初始化解析xml时分析过每一个MappedStatement都有一个Cache对象，就是这里
     Cache cache = ms.getCache();
 
