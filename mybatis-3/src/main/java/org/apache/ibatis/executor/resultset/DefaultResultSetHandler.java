@@ -657,8 +657,9 @@ public class DefaultResultSetHandler implements ResultSetHandler {
     // 创建映射后的结果对象
     Object resultObject = createResultObject(rsw, resultMap, constructorArgTypes, constructorArgs, columnPrefix);
     if (resultObject != null && !hasTypeHandlerForResultObject(rsw, resultMap.getType())) {
-      final List<ResultMapping> propertyMappings = resultMap.getPropertyResultMappings();
-      for (ResultMapping propertyMapping : propertyMappings) {
+      // 如果有内嵌的查询，并且开启延迟加载，则创建结果对象的代理对象
+      final List<ResultMapping> propertyMappings = resultMap.getPropertyResultMappings(); // 拿到 ResultMap 的映射关系
+      for (ResultMapping propertyMapping : propertyMappings) { // ResultMap 标签里面的元素都会映射成一个 ResultMapping 对象
         // issue gcode #109 && issue #149
         // 判断属性有没配置嵌套查询，如果有就创建代理对象
         if (propertyMapping.getNestedQueryId() != null && propertyMapping.isLazy()) {

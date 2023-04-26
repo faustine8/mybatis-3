@@ -155,6 +155,7 @@ public class JavassistProxyFactory implements org.apache.ibatis.executor.loader.
       final String methodName = method.getName();
       try {
         synchronized (lazyLoader) {
+          // 忽略 WRITE_REPLACE_METHOD ，和序列化相关
           if (WRITE_REPLACE_METHOD.equals(methodName)) {
             Object original;
             if (constructorArgTypes.isEmpty()) {
@@ -171,11 +172,14 @@ public class JavassistProxyFactory implements org.apache.ibatis.executor.loader.
             }
           }
           if (lazyLoader.size() > 0 && !FINALIZE_METHOD.equals(methodName)) {
+            // 加载所有延迟加载的属性
             if (aggressive || lazyLoadTriggerMethods.contains(methodName)) {
               lazyLoader.loadAll();
+              // 如果调用了 setting 方法，则不再使用延迟加载
             } else if (PropertyNamer.isSetter(methodName)) {
               final String property = PropertyNamer.methodToProperty(methodName);
-              lazyLoader.remove(property);
+              lazyLoader.remove(property);  // 移除
+              // 如果调用了 getting 方法，则执行延迟加载
             } else if (PropertyNamer.isGetter(methodName)) {
               final String property = PropertyNamer.methodToProperty(methodName);
               if (lazyLoader.hasLoader(property)) {
@@ -184,6 +188,7 @@ public class JavassistProxyFactory implements org.apache.ibatis.executor.loader.
             }
           }
         }
+        // 继续执行原方法
         return methodProxy.invoke(enhanced, args);
       } catch (Throwable t) {
         throw ExceptionUtil.unwrapThrowable(t);
